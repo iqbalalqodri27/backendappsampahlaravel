@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-use App\Models\Sampah;
+use App\Models\sampah;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use DB;
@@ -23,7 +23,7 @@ class SampahController extends Controller
 
     // $user_id = $userId->query('user_id');
 $tanggal = $request->query('date', Carbon::now()->format('Y-m-d'));
-    $data = Sampah::where('user_id', $userId)
+    $data = sampah::where('user_id', $userId)
             ->whereDate('waktu', $tanggal)
         ->orderBy('id', 'desc')
         ->get();
@@ -52,7 +52,7 @@ $tanggal = $request->query('date', Carbon::now()->format('Y-m-d'));
 
 
 public function filterTanggal(Request $r){
-    return Sampah::where('user_id',$r->user_id)
+    return sampah::where('user_id',$r->user_id)
         ->whereBetween('waktu',[
             $r->start,
             $r->end
@@ -60,7 +60,7 @@ public function filterTanggal(Request $r){
 }
 
 public function grafikHarian($id){
-    return Sampah::where('user_id',$id)
+    return sampah::where('user_id',$id)
     ->select(DB::raw("DATE(waktu) as tanggal"), DB::raw("COUNT(*) as total"))
     ->groupBy('tanggal')->get();
 }
@@ -69,7 +69,7 @@ public function harian(Request $request, $userId)
         // tanggal dari query ?date=YYYY-MM-DD
         $tanggal = $request->query('date', Carbon::now()->format('Y-m-d'));
 
-        $data = Sampah::select(
+        $data = sampah::select(
                 'kategori',
                 DB::raw('COUNT(*) as total')
             )
@@ -87,52 +87,69 @@ public function harian(Request $request, $userId)
 
 
 public function grafikBulanan($id){
-    return Sampah::where('user_id',$id)
+    return sampah::where('user_id',$id)
     ->select(DB::raw("MONTH(waktu) as bulan"), DB::raw("COUNT(*) as total"))
     ->groupBy('bulan')->get();
 }
     
-public function store(Request $request)
-{
-    $request->validate([
-        'user_id' => 'required',
-        'nis' => 'required',
-        'nama' => 'required',
-        'kelas' => 'required',
-        'kategori' => 'required',
-        'nama_sampah' => 'required',
-        'waktu' => 'required',
-        'foto' => 'required|image|mimes:jpg,jpeg,png',
-    ]);
+public function store(Request $r)
+    {
+        $destination = $_SERVER['DOCUMENT_ROOT'].'/uploads';
 
-    $imageName = time() . '.' . $request->foto->extension();
-    $request->foto->move(public_path('uploads'), $imageName);
+        if ($r->hasFile('foto')) {
+            $foto = $r->file('foto');
+            $fotoName = time().'.'.$foto->getClientOriginalExtension();
+            $foto->move($destination, $fotoName);
+        }
 
-    Sampah::create([
-        'user_id' => $request->user_id,
-        'nis' => $request->nis,
-        'nama' => $request->nama,
-        'kelas' => $request->kelas,
-        'kategori' => $request->kategori,
-        'nama_sampah' => $request->nama_sampah,
-        'waktu' => $request->waktu ?? now(),
-        'foto' => $imageName,
-    ]);
+        sampah::create([
+            'user_id' => $r->user_id,
+            'nis' => $r->nis,
+            'nama' => $r->nama,
+            'kelas' => $r->kelas,
+            'kategori' => $r->kategori,
+            'nama_sampah' => $r->nama_sampah,
+            'foto' => $fotoName,
+            'waktu' => now(),
+        ]);
 
-    return response()->json(['success' => true, 'message' => 'Data disimpan']);
-}
-
-public function destroy($id)
-{
-    $s = Sampah::find($id);
-    if (!$s) {
-        return response()->json(['message' => 'Data tidak ditemukan'], 404);
+        return response()->json(['status' => true]);
     }
 
-    $s->delete();
+public function destroy($id)
+    {
+        $data = Sampah::find($id);
 
-    return response()->json(['message' => 'Data berhasil dihapus']);
-}
+        if (!$data) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
+        // ===============================
+        // PATH KE public_html/uploads
+        // ===============================
+        $uploadPath = $_SERVER['DOCUMENT_ROOT'] . '/uploads/';
+
+        if ($data->foto) {
+            $filePath = $uploadPath . $data->foto;
+
+            if (file_exists($filePath)) {
+                unlink($filePath); // 🔥 HAPUS FILE
+            }
+        }
+
+        // ===============================
+        // HAPUS DATA DB
+        // ===============================
+        $data->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Data & foto berhasil dihapus'
+        ], 200);
+    }
 
 
 
