@@ -70,4 +70,47 @@ class AuthController extends Controller
         'user' => $user,
     ], 200);
 }
+
+public function changePassword(Request $request)
+{
+    $user = User::find($request->user_id);
+
+    if (!$user || !Hash::check($request->password_lama, $user->password)) {
+        return response()->json([
+            'message' => 'Password lama salah'
+        ], 400);
+    }
+
+    $user->password = Hash::make($request->password_baru);
+    $user->save();
+
+    return response()->json([
+        'message' => 'Password berhasil diubah'
+    ]);
+}
+
+public function forgotPassword(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|min:6'
+    ]);
+
+    $user = User::where('email', $request->email)->first();
+
+    if (!$user) {
+        return response()->json([
+            'message' => 'Email tidak terdaftar'
+        ], 404);
+    }
+
+    $user->password = bcrypt($request->password);
+    $user->save();
+
+    return response()->json([
+        'message' => 'Password berhasil direset'
+    ], 200);
+}
+
+
 }

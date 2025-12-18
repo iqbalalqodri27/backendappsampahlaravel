@@ -12,6 +12,9 @@ Route::post('/sampah/store', [SampahController::class, 'store']);
 // Route::get('/sampah/user/{id}', [SampahController::class, 'perUser']);
 Route::delete('/sampah/{id}', [SampahController::class, 'destroy']);
 
+Route::post('/change-password', [AuthController::class, 'changePassword']);
+
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 
 Route::post('/sampah/filter',[SampahController::class,'filterTanggal']);
 
