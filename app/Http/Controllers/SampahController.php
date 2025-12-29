@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use DB;
 use Carbon\Carbon;
+use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\File;
 // use Illuminate\Support\Facades\DB;
 
 class SampahController extends Controller
@@ -13,7 +16,7 @@ class SampahController extends Controller
 
     public function index(Request $request ,$userId)
 {
-    // 🔴 WAJIB user_id
+    // ðŸ”´ WAJIB user_id
     // if (!$userId->has('user_id')) {
     //     return response()->json([
     //         'status' => false,
@@ -52,7 +55,7 @@ $tanggal = $request->query('date', Carbon::now()->format('Y-m-d'));
 
 
 public function filterTanggal(Request $r){
-    return sampah::where('user_id',$r->user_id)
+    return Sampah::where('user_id',$r->user_id)
         ->whereBetween('waktu',[
             $r->start,
             $r->end
@@ -60,34 +63,29 @@ public function filterTanggal(Request $r){
 }
 
 public function grafikHarian($id){
-    return sampah::where('user_id',$id)
+    return Sampah::where('user_id',$id)
     ->select(DB::raw("DATE(waktu) as tanggal"), DB::raw("COUNT(*) as total"))
     ->groupBy('tanggal')->get();
 }
-public function harian(Request $request, $userId)
+ public function harian(Request $r, $id)
     {
-        // tanggal dari query ?date=YYYY-MM-DD
-        $tanggal = $request->query('date', Carbon::now()->format('Y-m-d'));
+        $date = $r->query('date');
 
-        $data = sampah::select(
-                'kategori',
-                DB::raw('COUNT(*) as total')
-            )
-            ->where('user_id', $userId)
-            ->whereDate('waktu', $tanggal)
+        $data = Sampah::select('kategori', DB::raw('count(*) as total'))
+            ->where('user_id', $id)
+            ->whereDate('waktu', $date)
             ->groupBy('kategori')
             ->get();
 
         return response()->json([
-            'success' => true,
-            'date' => $tanggal,
+            'status' => true,
             'data' => $data
-        ], 200);
+        ]);
     }
 
 
 public function grafikBulanan($id){
-    return sampah::where('user_id',$id)
+    return Sampah::where('user_id',$id)
     ->select(DB::raw("MONTH(waktu) as bulan"), DB::raw("COUNT(*) as total"))
     ->groupBy('bulan')->get();
 }
@@ -98,11 +96,12 @@ public function store(Request $r)
 
         if ($r->hasFile('foto')) {
             $foto = $r->file('foto');
-            $fotoName = time().'.'.$foto->getClientOriginalExtension();
+            // $fotoName = $r->nama_sampah.'.'.$foto->getClientOriginalExtension();
+            $fotoName = now()->format('Ymd_His') . '_' . uniqid() . '.' . $foto->getClientOriginalExtension();
             $foto->move($destination, $fotoName);
         }
 
-        sampah::create([
+        Sampah::create([
             'user_id' => $r->user_id,
             'nis' => $r->nis,
             'nama' => $r->nama,
@@ -150,8 +149,36 @@ public function destroy($id)
             'message' => 'Data & foto berhasil dihapus'
         ], 200);
     }
+    
 
+public function exportUser(Request $request, $userId)
+{
+    $type = $request->type; // day | week | month
 
+    $query = Sampah::where('user_id', $userId);
 
-    //
+    if ($type == 'day') {
+        $query->whereDate('created_at', now());
+    } elseif ($type == 'week') {
+        $query->whereBetween('created_at', [
+            now()->startOfWeek(),
+            now()->endOfWeek()
+        ]);
+    } elseif ($type == 'month') {
+        $query->whereMonth('created_at', now()->month)
+              ->whereYear('created_at', now()->year);
+    }
+
+    $data = $query->get();
+
+    $pdf = PDF::loadView('pdf.export_sampah', compact('data', 'type'))
+              ->setPaper('A4', 'portrait');
+
+    return response($pdf->output(), 200)
+        ->header('Content-Type', 'application/pdf')
+        ->header(
+            'Content-Disposition',
+            'attachment; filename="laporan_'.$userId.'_'.time().'.pdf"'
+        );
+} //
 }

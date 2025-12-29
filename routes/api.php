@@ -16,6 +16,7 @@ Route::post('/change-password', [AuthController::class, 'changePassword']);
 
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 
+
 Route::post('/sampah/filter',[SampahController::class,'filterTanggal']);
 
 Route::get('/grafik/{id}',[SampahController::class,'grafikHarian']);
@@ -23,5 +24,6 @@ Route::get('/dashboard/{userId}', [SampahController::class, 'harian']);
 
 Route::get('/grafik/bulanan/{id}',[SampahController::class,'grafikBulanan']);
 
-Route::get('/export/{id}',[PdfController::class,'export']);
+Route::get('/exportpdf/user/{userId}', [SampahController::class, 'exportUser']);
+
 
